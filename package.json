@@ -1,0 +1,9 @@
+{
+  "name": "zerando-a-fisica",
+  "version": "0.1.2",
+  "type": "module",
+  "dependencies": {
+    "firebase": "^12.12.1",
+    "node": "^24.15.0"
+  }
+}
