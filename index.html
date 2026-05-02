@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Física — Roadmap</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <!-- Descrição Inicial/Título ========================-->
+    <div class="header-label">// roadmap de estudos</div>
+    <h1>Física<span>.</span></h1>
+    <p class="header-sub">Acompanhe o progresso nas questões capítulo por capítulo. Clique nas questões para marcar como feitas.</p>
+    <!--==================================================-->
+
+    <!-- Dados de Conclusão ==============================-->
+    <div class="global-stats">
+
+      <div class="stat-card">
+        <div class="stat-value" id="globalDone">0</div>
+        <div class="stat-label">questões feitas</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-value" id="globalTotal">0</div>
+        <div class="stat-label">questões totais</div>
+      </div>
+
+      <div class="global-bar-wrap">
+        <div class="bar-label">
+          <span>Progresso Geral</span>
+          <span id="globalBarPct">0%</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="globalBar" style="width:0%"></div>
+        </div>
+      </div>
+
+    </div>
+    <!--==================================================-->
+  </header>
+
+  <!-- Botões de Ação =========================-->
+  <div class="filter-bar">
+    <button class="filter-btn active" onclick="setFilter('all', this)">     Todos          </button>
+    <button class="filter-btn"        onclick="setFilter('pending', this)"> Pendentes       </button>
+    <button class="filter-btn"        onclick="setFilter('done', this)">    Concluídos      </button>
+    <button class="reset-btn"         onclick="resetAll()">                 ↺ Resetar tudo  </button>
+  </div>
+  <!--=========================================-->
+
+  <div class="volumes" id="volumes"></div>
+
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
