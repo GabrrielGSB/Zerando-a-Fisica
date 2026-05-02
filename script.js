@@ -138,144 +138,146 @@ const DATA = [
 ];
 
 
-// ─── Estado (salvar/carregar progresso) ───────────────────────────────────────
+//===============================================================================
+// SALVAR OU CARREGAR ESTADO
+  let state  = {};
+  let filter = 'all';
 
-let state  = {};
-let filter = 'all';
+  // Gera uma chave única para identificar cada questão no estado,
+  function stateKey(chId, modIdx, q) {
+    return `${chId}_m${modIdx}_q${q}`;
+  }
 
-// Gera uma chave única para identificar cada questão no estado,
-function stateKey(capitulo, modulo, questao) {
-  return `${capitulo}_m${modulo}_q${questao}`;
-}
+  // Carrega o progresso salvo do localStorage para a variável state.
+  // Se não houver nada salvo, inicializa vazio.
+  function loadState() {
+    try { state = JSON.parse(localStorage.getItem('fisica_roadmap') || '{}'); }
+    catch(e) { state = {}; }
+  }
 
-// Carrega o progresso salvo do localStorage para a variável state.
-// Se não houver nada salvo, inicializa vazio.
-function loadState() {
-  try { state = JSON.parse(localStorage.getItem('fisica_roadmap') || '{}'); }
-  catch(e) { state = {}; }
-}
+  // Salva o estado atual no localStorage, persistindo o progresso entre sessões.
+  function saveState() {
+    localStorage.setItem('fisica_roadmap', JSON.stringify(state));
+  }
+//===============================================================================
 
-// Salva o estado atual no localStorage, persistindo o progresso entre sessões.
-function saveState() {
-  localStorage.setItem('fisica_roadmap', JSON.stringify(state));
-}
+//===============================================================================
+// AÇÕES DO USUÁRIO
+  // Alterna uma questão entre feita/não-feita ao clicar no botão dela,
+  // salva e atualiza a tela.
+  function toggleQ(chId, modIdx, q, btn) {
+    const k = stateKey(chId, modIdx, q);
+    state[k] = !state[k];
+    saveState();
+    btn.classList.toggle('done', state[k]);
+    updateAllCounter();
+  }
 
+  // Marca todas as questões de um módulo como feitas de uma vez.
+  function markAll(chId, modIdx, qs) {
+    qs.forEach(q => { state[stateKey(chId, modIdx, q)] = true; });
+    saveState(); render(); updateAllCounter();
+  }
 
-// ─── Ações do Usuário ─────────────────────────────────────────────────────────
+  // Remove o progresso de todas as questões de um módulo.
+  function clearMod(chId, modIdx, qs) {
+    qs.forEach(q => { delete state[stateKey(chId, modIdx, q)]; });
+    saveState(); render(); updateAllCounter();
+  }
 
-// Alterna uma questão entre feita/não-feita ao clicar no botão dela,
-// salva e atualiza a tela.
-function toggleQ(chId, modIdx, q, btn) {
-  const k = stateKey(chId, modIdx, q);
-  state[k] = !state[k];
-  saveState();
-  btn.classList.toggle('done', state[k]);
-  updateAll();
-}
+  // Apaga todo o progresso após pedir confirmação ao usuário.
+  function resetAll() {
+    if (!confirm('Resetar todo o progresso?')) return;
+    state = {};
+    saveState(); render(); updateAllCounter();
+  }
 
-// Marca todas as questões de um módulo como feitas de uma vez.
-function markAll(chId, modIdx, qs) {
-  qs.forEach(q => { state[stateKey(chId, modIdx, q)] = true; });
-  saveState();
-  render();
-  updateAll();
-}
+  // Define o filtro de exibição (all, done ou pending) e re-renderiza a tela.
+  function setFilter(f, btn) {
+    filter = f;
 
-// Remove o progresso de todas as questões de um módulo.
-function clearMod(chId, modIdx, qs) {
-  qs.forEach(q => { delete state[stateKey(chId, modIdx, q)]; });
-  saveState();
-  render();
-  updateAll();
-}
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
 
-// Apaga todo o progresso após pedir confirmação ao usuário.
-function resetAll() {
-  if (!confirm('Resetar todo o progresso?')) return;
-  state = {};
-  saveState();
-  render();
-  updateAll();
-}
+    btn.classList.add('active');
+    render();
+  }
 
-// Define o filtro de exibição (all, done ou pending) e re-renderiza a tela.
-function setFilter(f, btn) {
-  filter = f;
-  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  render();
-}
+  // Abre ou fecha o painel de um volume, salvando esse estado na sessionStorage.
+  function toggleVolume(id) {
+    const vol    = document.getElementById(`vol-${id}`);
+    const isOpen = vol.classList.toggle('open');
 
-// Abre ou fecha o painel de um volume, salvando esse estado na sessionStorage.
-function toggleVolume(id) {
-  const el = document.getElementById(`vol-${id}`);
-  const isOpen = el.classList.toggle('open');
-  sessionStorage.setItem(`open_${id}`, isOpen ? '1' : '0');
-}
+    sessionStorage.setItem(`open_${id}`, isOpen ? '1' : '0');
+  }
 
-// Abre ou fecha o painel de um capítulo, salvando esse estado na sessionStorage.
-function toggleChapter(id) {
-  const el = document.getElementById(`ch-${id}`);
-  if (!el) return;
-  const isOpen = el.classList.toggle('open');
-  sessionStorage.setItem(`open_${id}`, isOpen ? '1' : '0');
-}
+  // Abre ou fecha o painel de um capítulo, salvando esse estado na sessionStorage.
+  function toggleChapter(id) {
+    const chap   = document.getElementById(`ch-${id}`);
+    if (!chap) return;
 
+    const isOpen = chap.classList.toggle('open');
 
-// ─── Contagens ────────────────────────────────────────────────────────────────
+    sessionStorage.setItem(`open_${id}`, isOpen ? '1' : '0');
+  }
+//===============================================================================
 
-// Conta quantas questões de um módulo específico estão marcadas como feitas.
-function countModule(chId, modIdx, qs) {
-  return qs.filter(q => state[stateKey(chId, modIdx, q)]).length;
-}
+//===============================================================================
+// CONTAGENS
+  // Conta quantas questões de um módulo específico estão marcadas como feitas.
+  function countQuestionsDone(chId, modIdx, qs) {
+    return qs.filter(q => state[stateKey(chId, modIdx, q)]).length;
+  }
 
-// Soma o total de questões feitas e o total geral de um capítulo inteiro.
-function countChapter(ch) {
-  let done = 0, total = 0;
-  ch.modules.forEach((m, mi) => {
-    total += m.qs.length;
-    done  += countModule(ch.id, mi, m.qs);
-  });
-  return { done, total };
-}
+  // Soma o total de questões feitas e o total geral de um capítulo inteiro.
+  function countQuestionsDoneInChapter(ch) {
+    let done = 0, total = 0;
+    ch.modules.forEach((m, mi) => {
+      total += m.qs.length;
+      done  += countQuestionsDone(ch.id, mi, m.qs);
+    });
 
-// Soma o total de questões feitas e o total geral de todos os capítulos de um volume.
-function countVolume(vol) {
-  let done = 0, total = 0;
-  vol.chapters.forEach(ch => {
-    const c = countChapter(ch);
-    done  += c.done;
-    total += c.total;
-  });
-  return { done, total };
-}
+    return { done, total };
+  }
 
+  // Soma o total de questões feitas e o total geral de todos os capítulos de um volume.
+  function countQuestionsDoneInVolume(vol) {
+    let done = 0, total = 0;
+    vol.chapters.forEach(ch => {
+      const c = countQuestionsDoneInChapter(ch);
+      done  += c.done;
+      total += c.total;
+    });
+    return { done, total };
+  }
+//===============================================================================
 
-// ─── Atualização Visual ───────────────────────────────────────────────────────
+//===============================================================================
+// ATUALIZAÇÃO CONTADORES DE PROGRESSO
+  // Recalcula e atualiza as barras de progresso e contadores
+  // de todos os volumes e do progresso global.
+  function updateAllCounter() {
+    let gDone = 0, gTotal = 0;
 
-// Recalcula e atualiza as barras de progresso e contadores
-// de todos os volumes e do progresso global.
-function updateAll() {
-  let gDone = 0, gTotal = 0;
+    DATA.forEach(vol => {
+      const vc  = countQuestionsDoneInVolume(vol);
+      gDone  += vc.done;
+      gTotal += vc.total;
 
-  DATA.forEach(vol => {
-    const vc  = countVolume(vol);
-    gDone  += vc.done;
-    gTotal += vc.total;
+      const pct  = vc.total ? Math.round(vc.done / vc.total * 100) : 0;
+      const bar  = document.querySelector(`#vol-bar-${vol.id}`);
+      const prog = document.querySelector(`#vol-prog-${vol.id}`);
+      
+      if (bar)  bar.style.width    = pct + '%';
+      if (prog) prog.textContent   = `${vc.done}/${vc.total}`;
+    });
 
-    const pct  = vc.total ? Math.round(vc.done / vc.total * 100) : 0;
-    const bar  = document.querySelector(`#vol-bar-${vol.id}`);
-    const prog = document.querySelector(`#vol-prog-${vol.id}`);
-    if (bar)  bar.style.width    = pct + '%';
-    if (prog) prog.textContent   = `${vc.done}/${vc.total}`;
-  });
-
-  const gpct = gTotal ? Math.round(gDone / gTotal * 100) : 0;
-  document.getElementById('globalDone').textContent    = gDone;
-  document.getElementById('globalTotal').textContent   = gTotal;
-  document.getElementById('globalBar').style.width     = gpct + '%';
-  document.getElementById('globalBarPct').textContent  = gpct + '%';
-}
+    const gpct = gTotal ? Math.round(gDone / gTotal * 100) : 0;
+    document.getElementById('globalDone').textContent    = gDone;
+    document.getElementById('globalTotal').textContent   = gTotal;
+    document.getElementById('globalBar').style.width     = gpct + '%';
+    document.getElementById('globalBarPct').textContent  = gpct + '%';
+  }
+//===============================================================================
 
 
 // ─── Renderização ─────────────────────────────────────────────────────────────
@@ -284,7 +286,7 @@ function updateAll() {
 // e as ações de marcar/limpar, respeitando o filtro ativo.
 function renderModules(ch) {
   return ch.modules.map((mod, mi) => {
-    const done  = countModule(ch.id, mi, mod.qs);
+    const done  = countQuestionsDone(ch.id, mi, mod.qs);
     const qsHtml = mod.qs.map(q => {
       const isDone = !!state[stateKey(ch.id, mi, q)];
       if (filter === 'done'    && !isDone) return '';
@@ -313,7 +315,7 @@ function renderModules(ch) {
 // incluindo o cabeçalho e chamando renderModules.
 function renderChapters(vol) {
   return vol.chapters.map(ch => {
-    const cc         = countChapter(ch);
+    const cc         = countQuestionsDoneInChapter(ch);
     const hasModules = ch.modules.length > 0;
     const isOpen     = sessionStorage.getItem(`open_${ch.id}`) === '1';
 
@@ -335,13 +337,13 @@ function renderChapters(vol) {
 }
 
 // Função principal que reconstrói toda a interface do zero,
-// iterando sobre os volumes, e ao final chama updateAll.
+// iterando sobre os volumes, e ao final chama updateAllCounter.
 function render() {
   const container = document.getElementById('volumes');
   container.innerHTML = '';
 
   DATA.forEach(vol => {
-    const vc  = countVolume(vol);
+    const vc  = countQuestionsDoneInVolume(vol);
     const pct = vc.total ? Math.round(vc.done / vc.total * 100) : 0;
 
     const volEl = document.createElement('div');
@@ -369,7 +371,7 @@ function render() {
     container.appendChild(volEl);
   });
 
-  updateAll();
+  updateAllCounter();
 }
 
 // ─── Modal e Lógica da Questão ───────────────────────────────────────
@@ -432,7 +434,7 @@ function toggleCurrentQ() {
   btnElement.classList.toggle('done', isDone);
   
   // Atualiza as barras de progresso globais e dos volumes [cite: 41, 44]
-  updateAll();
+  updateAllCounter();
 }
 
 // Fecha o modal se o usuário clicar fora da caixa do conteúdo
