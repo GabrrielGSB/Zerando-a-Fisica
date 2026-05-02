@@ -416,3 +416,54 @@ h1 span {
 .volume:nth-child(2)     { animation-delay: 0.1s;  }
 .volume:nth-child(3)     { animation-delay: 0.15s; }
 .volume:nth-child(4)     { animation-delay: 0.2s;  }
+
+/* ─── Modal / Seção da Questão ─── */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(10, 10, 15, 0.85); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+}
+
+.modal-overlay.open {
+  opacity: 1; pointer-events: auto;
+}
+
+.modal-content {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; padding: 32px 24px; max-width: 600px; width: 90%;
+  max-height: 85vh; overflow-y: auto; position: relative;
+  transform: translateY(20px); transition: transform 0.3s ease;
+}
+
+.modal-overlay.open .modal-content {
+  transform: translateY(0);
+}
+
+.close-modal {
+  position: absolute; top: 16px; right: 20px; font-size: 28px;
+  color: var(--muted); cursor: pointer; transition: color 0.2s; line-height: 1;
+}
+
+.close-modal:hover { color: var(--accent); }
+
+.modal-title { font-size: 24px; font-weight: 800; margin-bottom: 16px; color: var(--text); }
+
+.modal-text { color: var(--text); line-height: 1.6; margin-bottom: 24px; font-size: 15px; }
+
+.modal-img { 
+  max-width: 100%; height: auto; border-radius: 8px; 
+  margin-bottom: 24px; border: 1px solid var(--border); 
+}
+
+.modal-btn {
+  width: 100%; padding: 14px; font-family: 'Space Mono', monospace;
+  font-size: 13px; font-weight: bold; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--accent); background: rgba(124,106,247,0.1); 
+  color: var(--accent); transition: all 0.2s ease; text-transform: uppercase; letter-spacing: 0.05em;
+}
+
+.modal-btn:hover { background: var(--accent); color: var(--bg); }
+
+.modal-btn.done { border-color: var(--done); background: rgba(106,247,200,0.1); color: var(--done); }
+.modal-btn.done:hover { background: var(--done); color: var(--bg); border-color: var(--done); }

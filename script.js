@@ -289,8 +289,8 @@ function renderModules(ch) {
       const isDone = !!state[stateKey(ch.id, mi, q)];
       if (filter === 'done'    && !isDone) return '';
       if (filter === 'pending' &&  isDone) return '';
-      return `<button class="q-btn ${isDone ? 'done' : ''}" onclick="toggleQ('${ch.id}',${mi},${q},this)">${q}</button>`;
-    }).join('');
+      return `<button class="q-btn ${isDone ? 'done' : ''}" onclick="openQuestionModal('${ch.id}', ${mi}, ${q}, this)">${q}</button>`;
+  }).join('');
 
     if (!qsHtml.trim()) return '';
 
@@ -371,6 +371,74 @@ function render() {
 
   updateAll();
 }
+
+// ─── Modal e Lógica da Questão ───────────────────────────────────────
+
+let currentActiveQuestion = null; // Armazena a questão aberta no momento
+
+function openQuestionModal(chId, modIdx, q, btnElement) {
+  // 1. Salva o contexto para podermos marcar como concluída depois
+  currentActiveQuestion = { chId, modIdx, q, btnElement };
+  const k = stateKey(chId, modIdx, q);
+  const isDone = !!state[k];
+
+  // 2. Aqui você pode integrar sua base de dados de textos e imagens.
+  // Exemplo de dados simulados (Substitua por sua lógica de busca real):
+  const mockText = `Este é o texto descritivo da questão ${q}. Aqui você pode inserir o enunciado completo da física.`;
+  // Exemplo de como montar a URL da imagem baseada no capítulo e questão:
+  const mockImgSrc = `assets/resolucoes/${chId}_q${q}.jpg`; 
+
+  // 3. Atualiza os elementos visuais do modal
+  document.getElementById('modalQTitle').textContent = `Questão ${q}`;
+  document.getElementById('modalQText').innerHTML = mockText; 
+  
+  const imgEl = document.getElementById('modalQImg');
+  imgEl.src = mockImgSrc;
+  imgEl.style.display = 'block';
+  // Oculta a tag <img> caso o arquivo da resolução não exista na pasta
+  imgEl.onerror = () => { imgEl.style.display = 'none'; };
+
+  // 4. Configura o estado visual do botão principal do modal
+  const toggleBtn = document.getElementById('modalToggleBtn');
+  toggleBtn.textContent = isDone ? 'Desmarcar Conclusão' : 'Marcar como Feita';
+  toggleBtn.className = isDone ? 'modal-btn done' : 'modal-btn';
+
+  // 5. Abre o modal
+  document.getElementById('qModal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('qModal').classList.remove('open');
+  currentActiveQuestion = null;
+}
+
+// 6. Função para alternar o estado da questão estando dentro do modal
+function toggleCurrentQ() {
+  if (!currentActiveQuestion) return;
+  const { chId, modIdx, q, btnElement } = currentActiveQuestion;
+
+  const k = stateKey(chId, modIdx, q);
+  state[k] = !state[k]; // Inverte o estado
+  saveState();          // Salva no localStorage [cite: 18]
+
+  const isDone = state[k];
+
+  // Atualiza o visual do botão dentro do próprio modal
+  const toggleBtn = document.getElementById('modalToggleBtn');
+  toggleBtn.textContent = isDone ? 'Desmarcar Conclusão' : 'Marcar como Feita';
+  toggleBtn.className = isDone ? 'modal-btn done' : 'modal-btn';
+
+  // Atualiza o botão pequeno lá atrás na grid de módulos
+  btnElement.classList.toggle('done', isDone);
+  
+  // Atualiza as barras de progresso globais e dos volumes [cite: 41, 44]
+  updateAll();
+}
+
+// Fecha o modal se o usuário clicar fora da caixa do conteúdo
+document.getElementById('qModal').addEventListener('click', (e) => {
+  if (e.target.id === 'qModal') closeModal();
+});
 
 
 // ─── Init ─────────────────────────────────────────────────────────────────────

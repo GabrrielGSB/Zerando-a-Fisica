@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,7 +8,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
+
 <div class="container">
 
   <header>
@@ -46,7 +49,7 @@
 
   <!-- Botões de Ação =========================-->
   <div class="filter-bar">
-    <button class="filter-btn active" onclick="setFilter('all', this)">     Todos          </button>
+    <button class="filter-btn active" onclick="setFilter('all', this)">     Todos           </button>
     <button class="filter-btn"        onclick="setFilter('pending', this)"> Pendentes       </button>
     <button class="filter-btn"        onclick="setFilter('done', this)">    Concluídos      </button>
     <button class="reset-btn"         onclick="resetAll()">                 ↺ Resetar tudo  </button>
@@ -55,6 +58,18 @@
 
   <div class="volumes" id="volumes"></div>
 
+</div>
+
+<div id="qModal" class="modal-overlay">
+  <div class="modal-content">
+    <span class="close-modal" onclick="closeModal()">&times;</span>
+    <h2 id="modalQTitle" class="modal-title">Questão</h2>
+    <div id="modalQText" class="modal-text">
+        </div>
+    <img id="modalQImg" class="modal-img" src="" alt="Resolução da questão" style="display: none;" />
+    
+    <button id="modalToggleBtn" class="modal-btn" onclick="toggleCurrentQ()">Marcar como Feita</button>
+  </div>
 </div>
 
 <script src="script.js"></script>
