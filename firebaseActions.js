@@ -1,20 +1,18 @@
 // firebaseActions.js
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
-import db from "./firebaseConfig.js"; // Certifique-se de que o caminho está correto
+import db from "./firebaseConfig.js"; 
 
-// ─── 1. BUSCAR TODOS OS DADOS (LIVROS, CAPÍTULOS E QUESTÕES) ───────────
-
-/*Busca o documento principal 'livros' de dentro da coleção 'Dados'.*/
-export async function buscarTodosOsDados() {
+/* Busca os dados do documento principal 'Volumes' de dentro da coleção 'Dados'. */
+export async function getAllVolumes() {
   try {
-    // Referência para o documento: coleção "Dados", documento "livros"
     const docRef = doc(db, "Dados", "Volumes");
     const docSnap = await getDoc(docRef);
 
     if (docSnap.exists()) {
       console.log("Dados carregados com sucesso!");
       return docSnap.data(); 
-    } else {
+    } 
+    else {
       console.log("Nenhum dado encontrado no documento 'livros'!");
       return null;
     }
@@ -24,35 +22,67 @@ export async function buscarTodosOsDados() {
   }
 }
 
-// ─── 2. BUSCAR DETALHES DE UMA QUESTÃO ESPECÍFICA (MODAL) ──────────────
-/**
- * Busca o enunciado e a resolução de uma questão específica.
- * Como tudo está num único documento, buscamos o doc e filtramos no JS.
- * Perfeito para usar no gatilho do Modal que abre ao clicar na questão!
- */
+export async  function getAllChapters({vol}){
+  try{
+    const docVolumes = await getAllVolumes();
+    const docSnap    = docVolumes[`volume-${vol}`]["capitulos"];
+
+    return docSnap; 
+  } 
+  catch (error) {
+    console.error("Erro ao buscar dados dos capítulos:", error);
+    throw error;
+  }
+}
+
+export async function getAllModules({vol, ch}){
+  try{
+    const docChapters = await getAllChapters({vol: vol});
+    const docSnap     = docChapters[`cap_${ch}`]["modulos"];
+
+    return docSnap;
+  }
+  catch (error) {
+    console.error("Erro ao buscar dados dos módulos:", error);
+    throw error;
+  }
+}
+
+export async function getAllQuestions({vol, ch, mod}){
+  try{
+    const docModules = await getAllModules({vol: vol, ch: ch});
+    const docSnap    = docModules[`mod_${ch}-${mod}`]["questoes"];
+
+    return docSnap;
+  }
+  catch (error) {
+    console.error("Erro ao buscar dados das questões:", error);
+    throw error;
+  }
+}
+
+/* Busca o enunciado e a resolução de uma questão específica. */
 export async function buscarDetalhesQuestao(capitulo, modulo, questaoId) {
   try {
-    const docRef = doc(db, "Dados", "livros");
-    const docSnap = await getDoc(docRef);
+    const docSnap = getAllVolumes();
 
     if (docSnap.exists()) {
-      const dados = docSnap.data();
-      
       // Navegando pelos mapas aninhados: capitulos -> modulos -> questoes
-      // Adapte as chaves abaixo exatamente para como elas estiverem escritas no seu Firestore
-      const questaoData = dados.capitulos?.[capitulo]?.modulos?.[modulo]?.questoes?.[questaoId];
+      const questaoData = docSnap.capitulos?.[capitulo]?.modulos?.[modulo]?.questoes?.[questaoId];
 
       if (questaoData) {
         return {
           enunciado: questaoData.enunciado,
           resolucao: questaoData.resolucao
         };
-      } else {
+      } 
+      else {
         console.log("Questão não encontrada na base de dados.");
         return null;
       }
     }
-  } catch (error) {
+  } 
+  catch (error) {
     console.error("Erro ao buscar a questão:", error);
     return null;
   }

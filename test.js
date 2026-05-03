@@ -1,8 +1,9 @@
 // Importe as funções do arquivo que criamos
 import { 
-    buscarTodosOsDados, 
-    buscarDetalhesQuestao, 
-    salvarProgressoNuvem 
+    getAllVolumes, 
+    getAllChapters, 
+    getAllModules,
+    getAllQuestions
 } from './firebaseActions.js';
 
 async function rodarTestes() {
@@ -10,9 +11,10 @@ async function rodarTestes() {
 
     try {
         // ─── TESTE 1: Buscar Todos os Dados ────────────────────────────────
-        console.log("\n⏳ [Teste 1] Buscando todos os dados do documento 'livros'...");
-        // Vai buscar toda a estrutura aninhada: capitulos > modulos > questoes [cite: 155]
-        const dadosCompletos = await buscarTodosOsDados();
+        console.log("\n⏳ [Teste 1] Buscando todos os dados do documento 'Volumes'...");
+
+        // const dadosCompletos = await getAllChapters(1);
+        const dadosCompletos = await getAllQuestions({vol: 1, ch: 1, mod: 1});;
         
         if (dadosCompletos) {
             console.log("✅ [Teste 1 Sucesso] Dados recebidos:", dadosCompletos);
