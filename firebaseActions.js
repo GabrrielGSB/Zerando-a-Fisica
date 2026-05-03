@@ -3,17 +3,16 @@ import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import db from "./firebaseConfig.js"; 
 
 /* Busca os dados do documento principal 'Volumes' de dentro da coleção 'Dados'. */
-export async function getAllVolumes() {
+export async function getAllData() {
   try {
     const docRef = doc(db, "Dados", "Volumes");
     const docSnap = await getDoc(docRef);
 
     if (docSnap.exists()) {
-      console.log("Dados carregados com sucesso!");
       return docSnap.data(); 
     } 
     else {
-      console.log("Nenhum dado encontrado no documento 'livros'!");
+      console.log("Nenhum dado encontrado no banco de dados!");
       return null;
     }
   } catch (error) {
@@ -24,7 +23,7 @@ export async function getAllVolumes() {
 
 export async  function getAllChapters({vol}){
   try{
-    const docVolumes = await getAllVolumes();
+    const docVolumes = await getAllData();
     const docSnap    = docVolumes[`volume-${vol}`]["capitulos"];
 
     return docSnap; 
@@ -61,51 +60,32 @@ export async function getAllQuestions({vol, ch, mod}){
   }
 }
 
-/* Busca o enunciado e a resolução de uma questão específica. */
-export async function buscarDetalhesQuestao(capitulo, modulo, questaoId) {
-  try {
-    const docSnap = getAllVolumes();
+export async function getQuestionData({vol, ch, mod, q}){
+  try{
+    const docQuestions = await getAllQuestions({vol: vol, ch: ch, mod: mod});
+    const docSnap      = docQuestions[`q_${q}`];
 
-    if (docSnap.exists()) {
-      // Navegando pelos mapas aninhados: capitulos -> modulos -> questoes
-      const questaoData = docSnap.capitulos?.[capitulo]?.modulos?.[modulo]?.questoes?.[questaoId];
-
-      if (questaoData) {
-        return {
-          enunciado: questaoData.enunciado,
-          resolucao: questaoData.resolucao
-        };
-      } 
-      else {
-        console.log("Questão não encontrada na base de dados.");
-        return null;
-      }
-    }
-  } 
-  catch (error) {
-    console.error("Erro ao buscar a questão:", error);
-    return null;
+    return docSnap;
+  }
+  catch(error) {
+    console.error("Erro ao buscar dados das questões:", error);
+    throw error;
   }
 }
 
-// ─── 3. (BÔNUS) SALVAR PROGRESSO DO USUÁRIO NA NUVEM ───────────────────
-/**
- * Se você tiver um sistema de login (Firebase Auth) no futuro, 
- * pode salvar o objeto 'state' de questões feitas direto no Firestore 
- * em vez de usar apenas o localStorage.
- */
-export async function salvarProgressoNuvem(userId, stateObject) {
-  try {
-    // Cria ou atualiza um documento com o ID do usuário em uma coleção 'Usuarios'
-    const userRef = doc(db, "Usuarios", userId);
-    
-    // O setDoc com merge: true atualiza os dados sem apagar os existentes
-    await setDoc(userRef, { 
-        progressoFisica: stateObject 
-    }, { merge: true });
 
-    console.log("Progresso salvo na nuvem com sucesso!");
+
+/* Atualiza APENAS um campo específico de uma questão (ex: adicionando a URL da imagem ou texto). */
+export async function atualizarDadosQuestao({vol, ch, mod, q, field}, newValue) {
+  try {
+    const docRef = doc(db, "Dados", "Volumes");
+    const fieldPath = `volume-${vol}.capitulos.cap_${ch}.modulos.mod_${ch}-${mod}.questoes.q_${q}.${field}`;
+
+    await updateDoc(docRef, { [fieldPath]: newValue });
+
+    console.log(`Campo '${field}' da questão ${q} atualizado com sucesso!`);
   } catch (error) {
-    console.error("Erro ao salvar progresso:", error);
+    console.error(`Erro ao atualizar o campo ${field}:`, error);
+    throw error;
   }
 }

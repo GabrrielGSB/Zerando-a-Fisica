@@ -1,13 +1,13 @@
 :root {
-  --bg: #0a0a0f;
-  --surface: #111118;
-  --border: #1e1e2e;
-  --accent: #7c6af7;
-  --accent2: #f7a26a;
-  --accent3: #6af7c8;
-  --text: #e8e6f0;
-  --muted: #6b6880;
-  --done: #6af7c8;
+  --bg:          #0a0a0f;
+  --surface:     #111118;
+  --border:      #1e1e2e;
+  --accent:      #7c6af7;
+  --accent2:     #f7a26a;
+  --accent3:     #6af7c8;
+  --text:        #e8e6f0;
+  --muted:       #6b6880;
+  --done:        #6af7c8;
   --progress-bg: #1a1a28;
 }
 
