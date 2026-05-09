@@ -243,20 +243,21 @@ function renderModules(vol, ch) {
 
   return Object.keys(modules).map( mod => {
     const id = mod.at(-1);
-    // const done  = countQuestionsDone(ch.id, mi, mod.qs);
-  //   const qsHtml = mod.qs.map(q => {
-  //     const isDone = !!state[stateKey(ch.id, mi, q)];
-  //     if (filter === 'done'    && !isDone) return '';
-  //     if (filter === 'pending' &&  isDone) return '';
-  //     return `<button class="q-btn ${isDone ? 'done' : ''}" onclick="openQuestionModal('${ch.id}', ${mi}, ${q}, this)">${q}</button>`;
-  // }).join('');
+    const questoes = modules[mod]['questoes'] ?? {};  // fallback para objeto vazio
 
-    // if (!qsHtml.trim()) return '';
+    const qsHtml = Object.keys(questoes).map(
+      q => {
+      const isDone = false;
+        if (filter === 'done'    && !isDone) return '';
+        if (filter === 'pending' &&  isDone) return '';
+        return `<button class="q-btn ${isDone ? 'done' : ''}" onclick="">${q.replace('q_', '')}</button>`;
+      }
+    ).join('');
 
     return `
       <div class="module">
         <div class="module-title">${modules[mod]['nome']}</div>
-        <div class="questions"> none </div>
+        <div class="questions"> ${qsHtml} </div>
         <div class="module-actions">
           <button class="module-action mark-all"  onclick="">✓ marcar todos</button>
           <span style="color:var(--border)">·</span>
@@ -505,6 +506,35 @@ function render() {
       btn.disabled     = true;
 
       await addQuestion(vol, ch, mod, numero, enunciado, imagemUrl);
+
+      // 1. Atualiza o DATA local
+      DATA['Dados']['Volumes'][vol]['capitulos'][ch]['modulos'][mod]['questoes'][`q_${numero}`] = {
+        enunciado:  enunciado || '',
+        resolucao:  imagemUrl || '',
+        concluida:  false,
+      };
+
+      // 2. Injeta o botão no DOM
+      const questoesContainer = document.querySelector(
+        `#mod-${vol}-${ch}-${mod} .questions`
+      );
+
+      const newBtn = document.createElement('button');
+      newBtn.className        = 'q-btn';
+      newBtn.textContent      = numero;
+      newBtn.dataset.vol      = vol;
+      newBtn.dataset.ch       = ch;
+      newBtn.dataset.mod      = mod;
+      newBtn.dataset.questao  = numero;
+
+      questoesContainer.appendChild(newBtn);
+
+      // 3. Atualiza o contador do módulo
+      // const counter = document.querySelector(`#mod-${vol}-${ch}-${mod} .module-actions span:last-child`);
+      // const total   = Object.keys(DATA['Dados']['Volumes'][vol]['capitulos'][ch]['modulos'][mod]['questoes']).length;
+      // if (counter) counter.textContent = `0/${total}`;
+
+
 
       closeAddQuestionModal();
       // passo 5: atualizar a UI aqui
