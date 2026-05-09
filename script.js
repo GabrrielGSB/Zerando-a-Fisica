@@ -3,81 +3,93 @@ import {
     getAllChapters, 
     getAllModules,
     getAllQuestions,
+    getQuestionData,
     addQuestion
 } from './firebaseActions.js';
 
 /*===============================================================================*/
 //#region FUNÇÕES UTILITÁRIAS
   function sortData(rawData) {
-    if (!rawData) return {};
+  if (!rawData) return {};
 
-    // Para "volume-1" → 1 | "cap_1" → 1 | "mod_1-2" → pega o último número
-    const getIndex = (key) => {
-      const nums = key.match(/\d+/g); // pega TODOS os números da chave
-      return parseInt(nums?.at(-1) ?? '0', 10); // usa o último
-    };
+  const getIndex = (key) => {
+    const nums = key.match(/\d+/g);
+    return parseInt(nums?.at(-1) ?? '0', 10);
+  };
 
-    const sorted = {};
+  const sorted = {};
 
-    Object.keys(rawData)
-      .sort((a, b) => getIndex(a) - getIndex(b))
-      .forEach(volKey => {
-        const vol = rawData[volKey];
-        sorted[volKey] = { ...vol };
+  Object.keys(rawData)
+    .sort((a, b) => getIndex(a) - getIndex(b))
+    .forEach(volKey => {
+      const vol = rawData[volKey];
+      sorted[volKey] = { ...vol };
 
-        if (vol.capitulos) {
-          sorted[volKey].capitulos = {};
+      if (vol.capitulos) {
+        sorted[volKey].capitulos = {};
 
-          Object.keys(vol.capitulos)
-            .sort((a, b) => getIndex(a) - getIndex(b))
-            .forEach(chKey => {
-              const ch = vol.capitulos[chKey];
-              sorted[volKey].capitulos[chKey] = { ...ch };
+        Object.keys(vol.capitulos)
+          .sort((a, b) => getIndex(a) - getIndex(b))
+          .forEach(chKey => {
+            const ch = vol.capitulos[chKey];
+            sorted[volKey].capitulos[chKey] = { ...ch };
 
-              if (ch.modulos) {
-                sorted[volKey].capitulos[chKey].modulos = {};
+            if (ch.modulos) {
+              sorted[volKey].capitulos[chKey].modulos = {};
 
-                Object.keys(ch.modulos)
-                  .sort((a, b) => getIndex(a) - getIndex(b))
-                  .forEach(modKey => {
-                    sorted[volKey].capitulos[chKey].modulos[modKey] = ch.modulos[modKey];
-                  });
-              }
-            });
-        }
-      });
+              Object.keys(ch.modulos)
+                .sort((a, b) => getIndex(a) - getIndex(b))
+                .forEach(modKey => {
+                  const mod = ch.modulos[modKey];
+                  sorted[volKey].capitulos[chKey].modulos[modKey] = { ...mod };
 
-    return sorted;
+                  // 👇 Novo: ordena as questões dentro de cada módulo
+                  if (mod.questoes) {
+                    sorted[volKey].capitulos[chKey].modulos[modKey].questoes = {};
+
+                    Object.keys(mod.questoes)
+                      .sort((a, b) => getIndex(a) - getIndex(b))
+                      .forEach(qKey => {
+                        sorted[volKey].capitulos[chKey].modulos[modKey].questoes[qKey] = mod.questoes[qKey];
+                      });
+                  }
+                });
+            }
+          });
+      }
+    });
+
+  return sorted;
+  }
+
+  // Converte link do Drive para URL de imagem direta
+  function convertDriveUrl(url) {
+    const match = url.match(/\/d\/([\w-]+)/);
+    if (match) return `https://drive.google.com/uc?export=view&id=${match[1]}`;
+    return url;
+  }
+
+  // Abre o modal zerado, guardando contexto de qual módulo originou
+  let modalContext = null; // { vol, ch, mod }
+
+  function openAddQuestionModal(vol, ch, mod) {
+    modalContext = { vol, ch, mod };
+
+    document.getElementById('inputNumero').value    = '';
+    document.getElementById('inputEnunciado').value = '';
+    document.getElementById('inputUrl').value       = '';
+    document.getElementById('imgPreviewWrap').style.display = 'none';
+    document.getElementById('imgError').style.display       = 'none';
+
+    document.getElementById('addQuestionModal').classList.add('open');
+  }
+
+  function closeAddQuestionModal() {
+    document.getElementById('addQuestionModal').classList.remove('open');
+    modalContext = null;
   }
 //#endregion
 /*===============================================================================*/
-
-// Converte link do Drive para URL de imagem direta
-function convertDriveUrl(url) {
-  const match = url.match(/\/d\/([\w-]+)/);
-  if (match) return `https://drive.google.com/uc?export=view&id=${match[1]}`;
-  return url;
-}
-
-// Abre o modal zerado, guardando contexto de qual módulo originou
-let modalContext = null; // { vol, ch, mod }
-
-function openAddQuestionModal(vol, ch, mod) {
-  modalContext = { vol, ch, mod };
-
-  document.getElementById('inputNumero').value    = '';
-  document.getElementById('inputEnunciado').value = '';
-  document.getElementById('inputUrl').value       = '';
-  document.getElementById('imgPreviewWrap').style.display = 'none';
-  document.getElementById('imgError').style.display       = 'none';
-
-  document.getElementById('addQuestionModal').classList.add('open');
-}
-
-function closeAddQuestionModal() {
-  document.getElementById('addQuestionModal').classList.remove('open');
-  modalContext = null;
-}
 
 /*===============================================================================*/
 //#region SALVAR OU CARREGAR ESTADO 
@@ -202,13 +214,7 @@ function closeAddQuestionModal() {
     });
     return { done, total };
   }
-//#endregion
-/*===============================================================================*/
 
-//===============================================================================
-// ATUALIZAÇÃO CONTADORES DE PROGRESSO
-  // Recalcula e atualiza as barras de progresso e contadores
-  // de todos os volumes e do progresso global.
   function updateAllCounter() {
     let gDone = 0, gTotal = 0;
 
@@ -231,194 +237,214 @@ function closeAddQuestionModal() {
     document.getElementById('globalBar').style.width     = gpct + '%';
     document.getElementById('globalBarPct').textContent  = gpct + '%';
   }
-//===============================================================================
+//#endregion
+/*===============================================================================*/
 
+/*===============================================================================*/
+//#region RENDERIZAÇÃO DE ELEMENTOS
+  function renderModules(vol, ch) {
+    const modules = DATA[vol]['capitulos'][ch]['modulos']
 
-// ─── Renderização ─────────────────────────────────────────────────────────────
+    return Object.keys(modules).map( mod => {
+      const id = mod.at(-1);
+      const questoes = modules[mod]['questoes'] ?? {};  // fallback para objeto vazio
 
-// Gera o HTML de todos os módulos de um capítulo, com os botões de questão
-// e as ações de marcar/limpar, respeitando o filtro ativo.
-function renderModules(vol, ch) {
-  const modules = DATA[vol]['capitulos'][ch]['modulos']
-
-  return Object.keys(modules).map( mod => {
-    const id = mod.at(-1);
-    const questoes = modules[mod]['questoes'] ?? {};  // fallback para objeto vazio
-
-    const qsHtml = Object.keys(questoes).map(
-      q => {
-      const isDone = false;
-        if (filter === 'done'    && !isDone) return '';
-        if (filter === 'pending' &&  isDone) return '';
-        return `<button class="q-btn ${isDone ? 'done' : ''}" onclick="">${q.replace('q_', '')}</button>`;
-      }
-    ).join('');
-
-    return `
-      <div class="module">
-        <div class="module-title">${modules[mod]['nome']}</div>
-        <div class="questions"> ${qsHtml} </div>
-        <div class="module-actions">
-          <button class="module-action mark-all"  onclick="">✓ marcar todos</button>
-          <span style="color:var(--border)">·</span>
-          <button class="module-action clear-all" onclick="">✕ limpar</button>
-          <span style="color:var(--border);margin-left:auto">${id}/${id}</span>
-          <button class="module-action btn-add-question"
-            data-vol="${vol}"
-            data-ch="${ch}"
-            data-mod="${mod}">
-            + nova questão
-          </button>
-        </div>
-      </div>
-    `;
-  }).join('');
-}
-
-// Gera o HTML de todos os capítulos de um volume,
-// incluindo o cabeçalho e chamando renderModules.
-function renderChapters(vol) {
-  const chapters = DATA[vol]['capitulos']
-  return Object.keys(chapters).map(
-    ch => {
-      const id = ch.at(-1);
-      // const cc         = countQuestionsDoneInChapter(ch);
-      const hasModules = Object.keys(chapters[ch]['modulos']).length > 0
-      // const hasModules = false;
-      // const isOpen     = sessionStorage.getItem(`open_${ch.id}`) === '1';
-      const isOpen = false;
-
-      if (filter === 'done'    && cc.done === 0)                        return '';
-      if (filter === 'pending' && cc.done === cc.total && cc.total > 0) return '';
+      const qsHtml = Object.keys(questoes).map(
+        q => {
+          const isDone = false;
+          if (filter === 'done'    && !isDone) return '';
+          if (filter === 'pending' &&  isDone) return '';
+          return `<button class="q-btn ${isDone ? 'done' : ''}" 
+                    data-vol="${vol}"
+                    data-ch="${ch}"
+                    data-mod="${mod}"
+                    data-questao="${q.replace('q_', '')}"> ${q.replace('q_', '')} 
+                  </button>`;
+        }
+      ).join('');
 
       return `
-        <div class="chapter ${isOpen ? 'open' : ''}" id="ch-${id}">
-
-          <div class="chapter-header" data-filter="${id}">
-            <span class="chapter-icon">                    ->                                       </span>
-            <span class="chapter-title">                  ${chapters[ch]['nome']}                   </span>
-            <span class="chapter-count">                  ${hasModules ? `${id}/${id}` : '—'} </span>
-            ${hasModules ? `<span class="chapter-chevron"> ▼                                        </span>` : ''}
+        <div class="module" id="mod-${vol}-${ch}-${mod}">
+          <div class="module-title">${modules[mod]['nome']}</div>
+          <div class="questions"> ${qsHtml} </div>
+          <div class="module-actions">
+            <button class="module-action mark-all"  onclick="">✓ marcar todos</button>
+            <span style="color:var(--border)">·</span>
+            <button class="module-action clear-all" onclick="">✕ limpar</button>
+            <span style="color:var(--border);margin-left:auto">${id}/${id}</span>
+            <button class="module-action btn-add-question"
+              data-vol="${vol}"
+              data-ch="${ch}"
+              data-mod="${mod}">
+              + nova questão
+            </button>
           </div>
-
-          ${hasModules ? `<div class="modules">${renderModules(vol, ch)}</div>` : ''}
         </div>
       `;
-  }).join('');
-}
+    }).join('');
+  }
 
-/* Função principal que reconstrói toda a interface do zero */
-function render() {
-  const container = document.getElementById('volumes');
-  container.innerHTML = '';
+  function renderChapters(vol) {
+    const chapters = DATA[vol]['capitulos']
+    return Object.keys(chapters).map(
+      ch => {
+        const id = ch.at(-1);
+        // const cc         = countQuestionsDoneInChapter(ch);
+        const hasModules = Object.keys(chapters[ch]['modulos']).length > 0
+        // const hasModules = false;
+        // const isOpen     = sessionStorage.getItem(`open_${ch.id}`) === '1';
+        const isOpen = false;
 
-  Object.keys(DATA).forEach(vol => {
-    const id = vol.at(-1); 
-    // console.log(DATA[`${vol}`]);
-    // const vc  = countQuestionsDoneInVolume(vol);                      //
-    // const pct = vc.total ? Math.round(vc.done / vc.total * 100) : 0;  //
+        if (filter === 'done'    && cc.done === 0)                        return '';
+        if (filter === 'pending' && cc.done === cc.total && cc.total > 0) return '';
 
-    const volEl = document.createElement('div');
-    volEl.className = `volume vol-${id}`;
-    volEl.id        = `vol-v${id}`;
+        return `
+          <div class="chapter ${isOpen ? 'open' : ''}" id="ch-${id}">
 
-    // const isOpen = sessionStorage.getItem(`open_${vol.id}`) === '1';
-    // if (isOpen) volEl.classList.add('open');
+            <div class="chapter-header" data-filter="${id}">
+              <span class="chapter-icon">                    ->                                       </span>
+              <span class="chapter-title">                  ${chapters[ch]['nome']}                   </span>
+              <span class="chapter-count">                  ${hasModules ? `${id}/${id}` : '—'} </span>
+              ${hasModules ? `<span class="chapter-chevron"> ▼                                        </span>` : ''}
+            </div>
 
-    volEl.innerHTML = `
-      <div class="volume-header" data-filter="${id}">
-        <span class="volume-icon">         📚          </span>
-        <span class="volume-title">        Volume ${id} </span>
-        <span class="volume-progress" 
-              id="vol-prog-${id}">         1/1          </span>
-        <span class="volume-chevron">      ▼            </span>
-      </div>
+            ${hasModules ? `<div class="modules">${renderModules(vol, ch)}</div>` : ''}
+          </div>
+        `;
+    }).join('');
+  }
 
-      <div class="volume-bar">
-        <div class="progress-fill" id="vol-bar-${id}" style="width:${0}%"></div>
-      </div>
+  /* Função principal que reconstrói toda a interface do zero */
+  function render() {
+    const container = document.getElementById('volumes');
+    container.innerHTML = '';
 
-      <div class="chapters" id="chapters-${id}">
-        ${renderChapters(vol)}
-      </div>
-    `;
+    Object.keys(DATA).forEach(vol => {
+      const id = vol.at(-1); 
+      // console.log(DATA[`${vol}`]);
+      // const vc  = countQuestionsDoneInVolume(vol);                      //
+      // const pct = vc.total ? Math.round(vc.done / vc.total * 100) : 0;  //
 
-    container.appendChild(volEl);
+      const volEl = document.createElement('div');
+      volEl.className = `volume vol-${id}`;
+      volEl.id        = `vol-v${id}`;
+
+      // const isOpen = sessionStorage.getItem(`open_${vol.id}`) === '1';
+      // if (isOpen) volEl.classList.add('open');
+
+      volEl.innerHTML = `
+        <div class="volume-header" data-filter="${id}">
+          <span class="volume-icon">         📚          </span>
+          <span class="volume-title">        Volume ${id} </span>
+          <span class="volume-progress" 
+                id="vol-prog-${id}">         1/1          </span>
+          <span class="volume-chevron">      ▼            </span>
+        </div>
+
+        <div class="volume-bar">
+          <div class="progress-fill" id="vol-bar-${id}" style="width:${0}%"></div>
+        </div>
+
+        <div class="chapters" id="chapters-${id}">
+          ${renderChapters(vol)}
+        </div>
+      `;
+
+      container.appendChild(volEl);
+    });
+
+    // updateAllCounter();
+  }
+//#endregion
+/*===============================================================================*/
+
+
+/*===============================================================================*/
+//#region JANELA DE VISUALIZAÇÃO DA QUESTÃO
+  let currentActiveQuestion = null; // Armazena a questão aberta no momento
+
+  async function openQuestionModal(vol, ch, mod, q, btnElement) {
+    currentActiveQuestion = { vol, ch, mod, q, btnElement };
+
+    const k      = stateKey(ch, mod, q);
+    const isDone = !!state[k];
+
+    // — Abre o modal imediatamente com estado de carregamento —
+    document.getElementById('modalQTitle').textContent  = `Questão ${q}`;
+    document.getElementById('modalQText').innerHTML     = '<span style="color:var(--muted)">Carregando...</span>';
+    document.getElementById('modalQImg').style.display  = 'none';
+    document.getElementById('qModal').classList.add('open');
+
+    const toggleBtn       = document.getElementById('modalToggleBtn');
+    toggleBtn.textContent = isDone ? 'Desmarcar Conclusão' : 'Marcar como Feita';
+    toggleBtn.className   = isDone ? 'modal-btn done' : 'modal-btn';
+
+    // — Extrai os índices numéricos das chaves (ex: "cap_5" → "5") —
+    const volNum = vol.match(/\d+/)?.[0];
+    const chNum  =  ch.match(/\d+/)?.[0];
+    const modNum = mod.match(/(\d+)$/)?.[0]; // último número: "mod_5-2" → "2"
+
+    try {
+      const data = await getQuestionData({ vol: volNum, ch: chNum, mod: modNum, q });
+
+      // — Enunciado —
+      document.getElementById('modalQText').innerHTML = data?.enunciado
+        ? data.enunciado
+        : '<span style="color:var(--muted);font-style:italic">Sem enunciado cadastrado.</span>';
+
+      // — Imagem de resolução —
+      const imgEl = document.getElementById('modalQImg');
+      if (data?.resolucao) {
+        imgEl.src          = data.resolucao;
+        imgEl.style.display = 'block';
+        imgEl.onerror      = () => { imgEl.style.display = 'none'; };
+      } else {
+        imgEl.style.display = 'none';
+      }
+
+    } catch (err) {
+      document.getElementById('modalQText').innerHTML =
+        '<span style="color:#f76a6a">Erro ao carregar os dados da questão.</span>';
+      console.error('openQuestionModal:', err);
+    }
+  }
+
+  function closeModal() {
+    document.getElementById('qModal').classList.remove('open');
+    currentActiveQuestion = null;
+  }
+
+  // 6. Função para alternar o estado da questão estando dentro do modal
+  function toggleCurrentQ() {
+    if (!currentActiveQuestion) return;
+    const { chId, modIdx, q, btnElement } = currentActiveQuestion;
+
+    const k = stateKey(chId, modIdx, q);
+    state[k] = !state[k]; // Inverte o estado
+    saveState();          // Salva no localStorage [cite: 18]
+
+    const isDone = state[k];
+
+    // Atualiza o visual do botão dentro do próprio modal
+    const toggleBtn = document.getElementById('modalToggleBtn');
+    toggleBtn.textContent = isDone ? 'Desmarcar Conclusão' : 'Marcar como Feita';
+    toggleBtn.className = isDone ? 'modal-btn done' : 'modal-btn';
+
+    // Atualiza o botão pequeno lá atrás na grid de módulos
+    btnElement.classList.toggle('done', isDone);
+    
+    // Atualiza as barras de progresso globais e dos volumes [cite: 41, 44]
+    updateAllCounter();
+  }
+
+  // Fecha o modal se o usuário clicar fora da caixa do conteúdo
+  document.getElementById('qModal').addEventListener('click', (e) => {
+    if (e.target.id === 'qModal') closeModal();
   });
-
-  // updateAllCounter();
-}
-
-// ─── Modal e Lógica da Questão ───────────────────────────────────────
-
-// let currentActiveQuestion = null; // Armazena a questão aberta no momento
-
-// function openQuestionModal(chId, modIdx, q, btnElement) {
-//   // 1. Salva o contexto para podermos marcar como concluída depois
-//   currentActiveQuestion = { chId, modIdx, q, btnElement };
-//   const k = stateKey(chId, modIdx, q);
-//   const isDone = !!state[k];
-
-//   // 2. Aqui você pode integrar sua base de dados de textos e imagens.
-//   // Exemplo de dados simulados (Substitua por sua lógica de busca real):
-//   const mockText = `Este é o texto descritivo da questão ${q}. Aqui você pode inserir o enunciado completo da física.`;
-//   // Exemplo de como montar a URL da imagem baseada no capítulo e questão:
-//   const mockImgSrc = `assets/resolucoes/${chId}_q${q}.jpg`; 
-
-//   // 3. Atualiza os elementos visuais do modal
-//   document.getElementById('modalQTitle').textContent = `Questão ${q}`;
-//   document.getElementById('modalQText').innerHTML = mockText; 
-  
-//   const imgEl = document.getElementById('modalQImg');
-//   imgEl.src = mockImgSrc;
-//   imgEl.style.display = 'block';
-//   // Oculta a tag <img> caso o arquivo da resolução não exista na pasta
-//   imgEl.onerror = () => { imgEl.style.display = 'none'; };
-
-//   // 4. Configura o estado visual do botão principal do modal
-//   const toggleBtn = document.getElementById('modalToggleBtn');
-//   toggleBtn.textContent = isDone ? 'Desmarcar Conclusão' : 'Marcar como Feita';
-//   toggleBtn.className = isDone ? 'modal-btn done' : 'modal-btn';
-
-//   // 5. Abre o modal
-//   document.getElementById('qModal').classList.add('open');
-// }
-
-// function closeModal() {
-//   document.getElementById('qModal').classList.remove('open');
-//   currentActiveQuestion = null;
-// }
-
-// // 6. Função para alternar o estado da questão estando dentro do modal
-// function toggleCurrentQ() {
-//   if (!currentActiveQuestion) return;
-//   const { chId, modIdx, q, btnElement } = currentActiveQuestion;
-
-//   const k = stateKey(chId, modIdx, q);
-//   state[k] = !state[k]; // Inverte o estado
-//   saveState();          // Salva no localStorage [cite: 18]
-
-//   const isDone = state[k];
-
-//   // Atualiza o visual do botão dentro do próprio modal
-//   const toggleBtn = document.getElementById('modalToggleBtn');
-//   toggleBtn.textContent = isDone ? 'Desmarcar Conclusão' : 'Marcar como Feita';
-//   toggleBtn.className = isDone ? 'modal-btn done' : 'modal-btn';
-
-//   // Atualiza o botão pequeno lá atrás na grid de módulos
-//   btnElement.classList.toggle('done', isDone);
-  
-//   // Atualiza as barras de progresso globais e dos volumes [cite: 41, 44]
-//   updateAllCounter();
-// }
-
-// // Fecha o modal se o usuário clicar fora da caixa do conteúdo
-// document.getElementById('qModal').addEventListener('click', (e) => {
-//   if (e.target.id === 'qModal') closeModal();
-// });
-
+//#endregion
+/*===============================================================================*/
 /*=============================================================================*/
-/* INIT */
+//#region MAIN 
   loadCloudState();
 
   const rawDATA = loadLocalData();
@@ -438,18 +464,25 @@ function render() {
     }
   );
 
-  document.getElementById('volumes').addEventListener('click', (event) => {
-    const volumeHeader  = event.target.closest('.volume-header');
-    const chapterHeader = event.target.closest('.chapter-header');
+  document.getElementById('volumes').addEventListener('click', 
+    (e) => {
+      const volumeHeader  = e.target.closest('.volume-header');
+      const chapterHeader = e.target.closest('.chapter-header');
+      const qBtn          = e.target.closest('.q-btn');
+      const addBtn        = e.target.closest('.btn-add-question');
 
-    if (volumeHeader) {
-      toggleVolume(volumeHeader.getAttribute('data-filter'));
+      if (volumeHeader)  toggleVolume(volumeHeader.getAttribute('data-filter'));
+      if (chapterHeader) toggleChapter(chapterHeader.getAttribute('data-filter'));
+      if (addBtn)        openAddQuestionModal(addBtn.dataset.vol, addBtn.dataset.ch, addBtn.dataset.mod);
+      if (qBtn)          openQuestionModal(
+        qBtn.dataset.vol,     
+        qBtn.dataset.ch,
+        qBtn.dataset.mod,
+        qBtn.dataset.questao,
+        qBtn
+      );
     }
-
-    if (chapterHeader) {
-      toggleChapter(chapterHeader.getAttribute('data-filter'));
-    }
-  });
+  );
 
   document.getElementById('closeModalBtn').addEventListener('click', closeAddQuestionModal);
   document.getElementById('cancelModalBtn').addEventListener('click', closeAddQuestionModal);
@@ -487,64 +520,75 @@ function render() {
   }
   });
 
-  document.getElementById('saveQuestionBtn').addEventListener('click', async () => {
-    const numero    = document.getElementById('inputNumero').value.trim();
-    const enunciado = document.getElementById('inputEnunciado').value.trim();
-    const rawUrl    = document.getElementById('inputUrl').value.trim();
-    const imagemUrl = rawUrl ? convertDriveUrl(rawUrl) : '';
+  document.getElementById('saveQuestionBtn').addEventListener('click', 
+    async () => {
+      const numero    = document.getElementById('inputNumero').value.trim();
+      const enunciado = document.getElementById('inputEnunciado').value.trim();
+      const rawUrl    = document.getElementById('inputUrl').value.trim();
+      const imagemUrl = rawUrl ? convertDriveUrl(rawUrl) : '';
 
-    if (!numero) {
-      document.getElementById('inputNumero').focus();
-      return;
+      if (!numero) {
+        document.getElementById('inputNumero').focus();
+        return;
+      }
+
+      const { vol, ch, mod } = modalContext;
+      const btn = document.getElementById('saveQuestionBtn');
+
+      try {
+        btn.textContent = 'Salvando...';
+        btn.disabled    = true;
+
+        await addQuestion(vol, ch, mod, numero, enunciado, imagemUrl);
+
+        // 1. Atualiza o DATA local
+        DATA[vol]['capitulos'][ch]['modulos'][mod]['questoes'][`q_${numero}`] = {
+          enunciado:  enunciado || '',
+          resolucao:  imagemUrl || '',
+          concluida:  false,
+        };
+
+        // 2. Injeta o botão no DOM
+        const questoesContainer = document.querySelector(
+          `#mod-${vol}-${ch}-${mod} .questions`
+        );
+
+        const newBtn = document.createElement('button');
+        newBtn.className       = 'q-btn';
+        newBtn.textContent     = numero;
+        newBtn.dataset.vol     = vol;
+        newBtn.dataset.ch      = ch;
+        newBtn.dataset.mod     = mod;
+        newBtn.dataset.questao = numero;
+
+        questoesContainer.appendChild(newBtn);
+
+        // 3. Atualiza o contador do módulo
+        const total   = Object.keys(DATA[vol]['capitulos'][ch]['modulos'][mod]['questoes']).length;
+        const counter = document.querySelector(`#mod-${vol}-${ch}-${mod} .module-actions span`);
+        if (counter) counter.textContent = `0/${total}`;
+
+        closeAddQuestionModal();
+      } 
+      catch (e) {
+        console.error(e);
+        btn.textContent = 'Erro ao salvar';
+      } 
+      finally {
+        btn.textContent = 'Salvar questão';
+        btn.disabled    = false;
+      }
     }
+  );
 
-    const { vol, ch, mod } = modalContext;
-    const btn = document.getElementById('saveQuestionBtn');
+  // Fechar modal de visualização
+  document.getElementById('closeQModalBtn').addEventListener('click', closeModal);
 
-    try {
-      btn.textContent  = 'Salvando...';
-      btn.disabled     = true;
-
-      await addQuestion(vol, ch, mod, numero, enunciado, imagemUrl);
-
-      // 1. Atualiza o DATA local
-      DATA['Dados']['Volumes'][vol]['capitulos'][ch]['modulos'][mod]['questoes'][`q_${numero}`] = {
-        enunciado:  enunciado || '',
-        resolucao:  imagemUrl || '',
-        concluida:  false,
-      };
-
-      // 2. Injeta o botão no DOM
-      const questoesContainer = document.querySelector(
-        `#mod-${vol}-${ch}-${mod} .questions`
-      );
-
-      const newBtn = document.createElement('button');
-      newBtn.className        = 'q-btn';
-      newBtn.textContent      = numero;
-      newBtn.dataset.vol      = vol;
-      newBtn.dataset.ch       = ch;
-      newBtn.dataset.mod      = mod;
-      newBtn.dataset.questao  = numero;
-
-      questoesContainer.appendChild(newBtn);
-
-      // 3. Atualiza o contador do módulo
-      // const counter = document.querySelector(`#mod-${vol}-${ch}-${mod} .module-actions span:last-child`);
-      // const total   = Object.keys(DATA['Dados']['Volumes'][vol]['capitulos'][ch]['modulos'][mod]['questoes']).length;
-      // if (counter) counter.textContent = `0/${total}`;
-
-
-
-      closeAddQuestionModal();
-      // passo 5: atualizar a UI aqui
-    } 
-    catch (e) {
-      btn.textContent = 'Erro ao salvar';
-    } 
-    finally {
-      btn.textContent = 'Salvar questão';
-      btn.disabled    = false;
-    }
+  document.getElementById('qModal').addEventListener('click', (e) => {
+    if (e.target.id === 'qModal') closeModal();
   });
+
+  // Botão de marcar/desmarcar dentro do modal
+  document.getElementById('modalToggleBtn').addEventListener('click', toggleCurrentQ);
+//#endregion
 /*==============================================================================*/

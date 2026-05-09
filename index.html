@@ -67,18 +67,21 @@
 
   </div>
 
-  <!-- <div id="qModal" class="modal-overlay">
+  <!-- Janela de Questão Existente ===============================================================-->
+  <div id="qModal" class="modal-overlay">
+
     <div class="modal-content">
-      <span class="close-modal" onclick="closeModal()">&times;</span>
+      <span class="close-modal" id="closeQModalBtn">&times;</span>
       <h2 id="modalQTitle" class="modal-title">Questão</h2>
-      <div id="modalQText" class="modal-text">
-          </div>
+      <div id="modalQText" class="modal-text"></div>
       <img id="modalQImg" class="modal-img" src="" alt="Resolução da questão" style="display: none;" />
       
-      <button id="modalToggleBtn" class="modal-btn" onclick="toggleCurrentQ()">Marcar como Feita</button>
+      <button id="modalToggleBtn" class="modal-btn">Marcar como Feita</button>
     </div>
-  </div> -->
+  </div>
+  <!--============================================================================================-->
 
+  <!-- Janela de Adicionar Questão ===============================================================-->
   <div id="addQuestionModal" class="modal-overlay">
     <div class="modal-content">
 
@@ -119,6 +122,7 @@
 
     </div>
   </div>
+  <!--============================================================================================-->
 
   <script type="module" src="script.js"></script>
 </body>
