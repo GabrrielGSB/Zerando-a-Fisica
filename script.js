@@ -2,8 +2,82 @@ import {
     getAllData, 
     getAllChapters, 
     getAllModules,
-    getAllQuestions
+    getAllQuestions,
+    addQuestion
 } from './firebaseActions.js';
+
+/*===============================================================================*/
+//#region FUNÇÕES UTILITÁRIAS
+  function sortData(rawData) {
+    if (!rawData) return {};
+
+    // Para "volume-1" → 1 | "cap_1" → 1 | "mod_1-2" → pega o último número
+    const getIndex = (key) => {
+      const nums = key.match(/\d+/g); // pega TODOS os números da chave
+      return parseInt(nums?.at(-1) ?? '0', 10); // usa o último
+    };
+
+    const sorted = {};
+
+    Object.keys(rawData)
+      .sort((a, b) => getIndex(a) - getIndex(b))
+      .forEach(volKey => {
+        const vol = rawData[volKey];
+        sorted[volKey] = { ...vol };
+
+        if (vol.capitulos) {
+          sorted[volKey].capitulos = {};
+
+          Object.keys(vol.capitulos)
+            .sort((a, b) => getIndex(a) - getIndex(b))
+            .forEach(chKey => {
+              const ch = vol.capitulos[chKey];
+              sorted[volKey].capitulos[chKey] = { ...ch };
+
+              if (ch.modulos) {
+                sorted[volKey].capitulos[chKey].modulos = {};
+
+                Object.keys(ch.modulos)
+                  .sort((a, b) => getIndex(a) - getIndex(b))
+                  .forEach(modKey => {
+                    sorted[volKey].capitulos[chKey].modulos[modKey] = ch.modulos[modKey];
+                  });
+              }
+            });
+        }
+      });
+
+    return sorted;
+  }
+//#endregion
+/*===============================================================================*/
+
+// Converte link do Drive para URL de imagem direta
+function convertDriveUrl(url) {
+  const match = url.match(/\/d\/([\w-]+)/);
+  if (match) return `https://drive.google.com/uc?export=view&id=${match[1]}`;
+  return url;
+}
+
+// Abre o modal zerado, guardando contexto de qual módulo originou
+let modalContext = null; // { vol, ch, mod }
+
+function openAddQuestionModal(vol, ch, mod) {
+  modalContext = { vol, ch, mod };
+
+  document.getElementById('inputNumero').value    = '';
+  document.getElementById('inputEnunciado').value = '';
+  document.getElementById('inputUrl').value       = '';
+  document.getElementById('imgPreviewWrap').style.display = 'none';
+  document.getElementById('imgError').style.display       = 'none';
+
+  document.getElementById('addQuestionModal').classList.add('open');
+}
+
+function closeAddQuestionModal() {
+  document.getElementById('addQuestionModal').classList.remove('open');
+  modalContext = null;
+}
 
 /*===============================================================================*/
 //#region SALVAR OU CARREGAR ESTADO 
@@ -95,7 +169,7 @@ import {
 
     const isOpen = chap.classList.toggle('open');
 
-    sessionStorage.setItem(`open_${id}`, isOpen ? '1' : '0');
+    // sessionStorage.setItem(`open_${id}`, isOpen ? '1' : '0');
   }
 //#endregion
 /*===============================================================================*/
@@ -164,27 +238,36 @@ import {
 
 // Gera o HTML de todos os módulos de um capítulo, com os botões de questão
 // e as ações de marcar/limpar, respeitando o filtro ativo.
-function renderModules(ch) {
-  return ch.modules.map((mod, mi) => {
-    const done  = countQuestionsDone(ch.id, mi, mod.qs);
-    const qsHtml = mod.qs.map(q => {
-      const isDone = !!state[stateKey(ch.id, mi, q)];
-      if (filter === 'done'    && !isDone) return '';
-      if (filter === 'pending' &&  isDone) return '';
-      return `<button class="q-btn ${isDone ? 'done' : ''}" onclick="openQuestionModal('${ch.id}', ${mi}, ${q}, this)">${q}</button>`;
-  }).join('');
+function renderModules(vol, ch) {
+  const modules = DATA[vol]['capitulos'][ch]['modulos']
 
-    if (!qsHtml.trim()) return '';
+  return Object.keys(modules).map( mod => {
+    const id = mod.at(-1);
+    // const done  = countQuestionsDone(ch.id, mi, mod.qs);
+  //   const qsHtml = mod.qs.map(q => {
+  //     const isDone = !!state[stateKey(ch.id, mi, q)];
+  //     if (filter === 'done'    && !isDone) return '';
+  //     if (filter === 'pending' &&  isDone) return '';
+  //     return `<button class="q-btn ${isDone ? 'done' : ''}" onclick="openQuestionModal('${ch.id}', ${mi}, ${q}, this)">${q}</button>`;
+  // }).join('');
+
+    // if (!qsHtml.trim()) return '';
 
     return `
       <div class="module">
-        <div class="module-title">${mod.label}</div>
-        <div class="questions">${qsHtml}</div>
+        <div class="module-title">${modules[mod]['nome']}</div>
+        <div class="questions"> none </div>
         <div class="module-actions">
-          <button class="module-action mark-all"  onclick="markAll('${ch.id}',${mi},[${mod.qs}])">✓ marcar todos</button>
+          <button class="module-action mark-all"  onclick="">✓ marcar todos</button>
           <span style="color:var(--border)">·</span>
-          <button class="module-action clear-all" onclick="clearMod('${ch.id}',${mi},[${mod.qs}])">✕ limpar</button>
-          <span style="color:var(--border);margin-left:auto">${done}/${mod.qs.length}</span>
+          <button class="module-action clear-all" onclick="">✕ limpar</button>
+          <span style="color:var(--border);margin-left:auto">${id}/${id}</span>
+          <button class="module-action btn-add-question"
+            data-vol="${vol}"
+            data-ch="${ch}"
+            data-mod="${mod}">
+            + nova questão
+          </button>
         </div>
       </div>
     `;
@@ -194,13 +277,13 @@ function renderModules(ch) {
 // Gera o HTML de todos os capítulos de um volume,
 // incluindo o cabeçalho e chamando renderModules.
 function renderChapters(vol) {
-  let chapters = DATA[vol]['capitulos']
+  const chapters = DATA[vol]['capitulos']
   return Object.keys(chapters).map(
     ch => {
       const id = ch.at(-1);
       // const cc         = countQuestionsDoneInChapter(ch);
-      // const hasModules = ch.modules.length > 0;
-      const hasModules = false;
+      const hasModules = Object.keys(chapters[ch]['modulos']).length > 0
+      // const hasModules = false;
       // const isOpen     = sessionStorage.getItem(`open_${ch.id}`) === '1';
       const isOpen = false;
 
@@ -210,14 +293,14 @@ function renderChapters(vol) {
       return `
         <div class="chapter ${isOpen ? 'open' : ''}" id="ch-${id}">
 
-          <div class="chapter-header" onclick="toggleChapter('${ch.id}')">
-            <span class="chapter-icon">  ->                                            </span>
-            <span class="chapter-title"> ${chapters[ch]['nome']}                       </span>
-            <span class="chapter-count"> ${hasModules ? `${cc.done}/${cc.total}` : '—'}</span>
-            ${hasModules ? `<span class="chapter-chevron">▼</span>` : ''}
+          <div class="chapter-header" data-filter="${id}">
+            <span class="chapter-icon">                    ->                                       </span>
+            <span class="chapter-title">                  ${chapters[ch]['nome']}                   </span>
+            <span class="chapter-count">                  ${hasModules ? `${id}/${id}` : '—'} </span>
+            ${hasModules ? `<span class="chapter-chevron"> ▼                                        </span>` : ''}
           </div>
 
-          ${hasModules ? `<div class="modules">${renderModules(ch)}</div>` : ''}
+          ${hasModules ? `<div class="modules">${renderModules(vol, ch)}</div>` : ''}
         </div>
       `;
   }).join('');
@@ -336,10 +419,13 @@ function render() {
 /*=============================================================================*/
 /* INIT */
   loadCloudState();
-  const DATA = loadLocalData();
+
+  const rawDATA = loadLocalData();
+  const DATA = sortData(rawDATA);
+  console.log(DATA);
   render();
 
-  /* Escuta pelo pressionar de algum botão de filtro e aplica a função correta */
+
   document.querySelectorAll('.filter-btn').forEach(
     btn => {
       btn.addEventListener('click', 
@@ -351,13 +437,84 @@ function render() {
     }
   );
 
-  document.getElementById('volumes').addEventListener('click', 
-    (event) => {
-      const header = event.target.closest('.volume-header');
-      
-      if (header) {
-          const filterValue = header.getAttribute('data-filter');
-          toggleVolume(filterValue);
-      }
+  document.getElementById('volumes').addEventListener('click', (event) => {
+    const volumeHeader  = event.target.closest('.volume-header');
+    const chapterHeader = event.target.closest('.chapter-header');
+
+    if (volumeHeader) {
+      toggleVolume(volumeHeader.getAttribute('data-filter'));
+    }
+
+    if (chapterHeader) {
+      toggleChapter(chapterHeader.getAttribute('data-filter'));
+    }
+  });
+
+  document.getElementById('closeModalBtn').addEventListener('click', closeAddQuestionModal);
+  document.getElementById('cancelModalBtn').addEventListener('click', closeAddQuestionModal);
+
+  document.getElementById('addQuestionModal').addEventListener('click', (e) => {
+    if (e.target.id === 'addQuestionModal') closeAddQuestionModal();
+  });
+
+  document.getElementById('inputUrl').addEventListener('input', () => {
+    const raw  = document.getElementById('inputUrl').value.trim();
+    const wrap = document.getElementById('imgPreviewWrap');
+    const err  = document.getElementById('imgError');
+
+    if (!raw) { wrap.style.display = 'none'; return; }
+
+    const url = convertDriveUrl(raw);
+    document.getElementById('imgPreview').src = url;
+    wrap.style.display = 'block';
+    err.style.display  = 'none';
+  });
+
+  document.getElementById('imgPreview').addEventListener('error', () => {
+    document.getElementById('imgPreviewWrap').style.display = 'none';
+    document.getElementById('imgError').style.display       = 'block';
+  });
+
+  document.getElementById('volumes').addEventListener('click', (e) => {
+  const addBtn = e.target.closest('.btn-add-question');
+
+  if (addBtn) {
+    const vol = addBtn.dataset.vol;
+    const ch  = addBtn.dataset.ch;
+    const mod = addBtn.dataset.mod;
+    openAddQuestionModal(vol, ch, mod);
+  }
+  });
+
+  document.getElementById('saveQuestionBtn').addEventListener('click', async () => {
+    const numero    = document.getElementById('inputNumero').value.trim();
+    const enunciado = document.getElementById('inputEnunciado').value.trim();
+    const rawUrl    = document.getElementById('inputUrl').value.trim();
+    const imagemUrl = rawUrl ? convertDriveUrl(rawUrl) : '';
+
+    if (!numero) {
+      document.getElementById('inputNumero').focus();
+      return;
+    }
+
+    const { vol, ch, mod } = modalContext;
+    const btn = document.getElementById('saveQuestionBtn');
+
+    try {
+      btn.textContent  = 'Salvando...';
+      btn.disabled     = true;
+
+      await addQuestion(vol, ch, mod, numero, enunciado, imagemUrl);
+
+      closeAddQuestionModal();
+      // passo 5: atualizar a UI aqui
+    } 
+    catch (e) {
+      btn.textContent = 'Erro ao salvar';
+    } 
+    finally {
+      btn.textContent = 'Salvar questão';
+      btn.disabled    = false;
+    }
   });
 /*==============================================================================*/

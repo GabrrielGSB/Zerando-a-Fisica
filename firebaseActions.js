@@ -74,7 +74,6 @@ export async function getQuestionData({vol, ch, mod, q}){
 }
 
 
-
 /* Atualiza APENAS um campo específico de uma questão (ex: adicionando a URL da imagem ou texto). */
 export async function atualizarDadosQuestao({vol, ch, mod, q, field}, newValue) {
   try {
@@ -86,6 +85,27 @@ export async function atualizarDadosQuestao({vol, ch, mod, q, field}, newValue) 
     console.log(`Campo '${field}' da questão ${q} atualizado com sucesso!`);
   } catch (error) {
     console.error(`Erro ao atualizar o campo ${field}:`, error);
+    throw error;
+  }
+}
+
+
+export async function addQuestion(vol, ch, mod, numero, enunciado, imagemUrl) {
+  try {
+    const docRef = doc(db, 'Dados', 'Volumes');
+    
+    await updateDoc(docRef, {
+      [`${vol}.capitulos.${ch}.modulos.${mod}.questoes.q_${numero}`]: {
+        enunciado:  enunciado || '',
+        resolucao:  imagemUrl || '',
+        concluida:  false,
+      }
+    });
+
+    console.log(`Questão q_${numero} adicionada com sucesso!`);
+  } 
+  catch (error) {
+    console.error('Erro ao adicionar questão:', error);
     throw error;
   }
 }

@@ -79,6 +79,47 @@
     </div>
   </div> -->
 
+  <div id="addQuestionModal" class="modal-overlay">
+    <div class="modal-content">
+
+      <span class="close-modal" id="closeModalBtn">&times;</span>
+      <h2 class="modal-title">Adicionar questão</h2>
+
+      <div class="modal-field">
+        <label class="modal-label">
+          Número da questão <span class="modal-required">*</span>
+        </label>
+        <input type="number" id="inputNumero" placeholder="ex: 42" />
+      </div>
+
+      <div class="modal-field">
+        <label class="modal-label">
+          Enunciado <span class="modal-optional">— opcional</span>
+        </label>
+        <textarea id="inputEnunciado" rows="3" placeholder="Digite o enunciado..."></textarea>
+      </div>
+
+      <div class="modal-field">
+        <label class="modal-label">
+          URL da imagem <span class="modal-optional">— opcional</span>
+        </label>
+        <input type="text" id="inputUrl" placeholder="https://drive.google.com/file/d/..." />
+        <div id="imgPreviewWrap" style="display:none">
+          <img id="imgPreview" alt="Preview da resolução" />
+          <p id="imgError" style="display:none">
+            Não foi possível carregar a imagem. Verifique o link.
+          </p>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="modal-btn-cancel" id="cancelModalBtn">Cancelar</button>
+        <button class="modal-btn" id="saveQuestionBtn">Salvar questão</button>
+      </div>
+
+    </div>
+  </div>
+
   <script type="module" src="script.js"></script>
 </body>
 </html>
